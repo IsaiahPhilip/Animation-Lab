@@ -22,11 +22,19 @@ class Game:
 
         pygame.display.set_caption('ANIMATION TESTER GAME')
         self.screen = pygame.display.set_mode((640, 480))
+        self.half_w = self.screen.get_size()[0] // 2
+        self.half_h = self.screen.get_size()[1] // 2
 
         # concept: render onto display then scale up to screen?
         # everything rendered in display gets an outline
-        self.display = pygame.Surface((320, 240), pygame.SRCALPHA)
-        self.display_2 = pygame.Surface((320, 240))
+        self.internal_surface_size = (320, 240)
+        self.display = pygame.Surface(self.internal_surface_size, pygame.SRCALPHA)
+        self.display_2 = pygame.Surface(self.internal_surface_size, pygame.SRCALPHA)
+        self.display_2_rect = self.display_2.get_rect(center=(self.half_w, self.half_h))
+        self.internal_surface_size_vector = pygame.math.Vector2((640, 480))
+        self.internal_offset = pygame.math.Vector2()
+        self.internal_offset.x = self.internal_surface_size[0] // 2 - self.half_w
+        self.internal_offset.y = self.internal_surface_size[1] // 2 - self.half_h
 
         self.clock = pygame.time.Clock()
 
@@ -40,8 +48,8 @@ class Game:
             'player': load_image('entities/player.png'),
             'background': load_image('background.png'),
             'clouds': load_images('clouds'),
-            'enemy/idle': Animation(load_images('entities/enemy/idle'), 6),
-            'enemy/run': Animation(load_images('entities/enemy/run'), 4),
+            # 'enemy/idle': Animation(load_images('entities/enemy/idle'), 6),
+            # 'enemy/run': Animation(load_images('entities/enemy/run'), 4),
             'player/idle': Animation(load_images('entities/player/idle'), 6),
             'player/run': Animation(load_images('entities/player/run'), 4),
             'player/jump': Animation(load_images('entities/player/jump')),
@@ -92,7 +100,7 @@ class Game:
         self.exit_button = Button(self, 200, 250, self.assets['exit'], .5)
 
         self.game_state = 'init'
-        self.zoom_level = 0
+        self.zoom_level = 1
 
     # Initiates the game with a given level
     def load_level(self, map_id):
@@ -128,16 +136,19 @@ class Game:
                 if self.start_button.draw(self.screen):
                     self.game_state = 'play'
                     self.run()
+
+                if self.exit_button.draw(self.screen):
+                    pygame.quit()
+                    sys.exit()
             else:
                 pygame.mixer.music.pause()
-
                 if self.continue_button.draw(self.screen):
                     self.game_state = 'play'
                     self.run()
 
-            if self.exit_button.draw(self.screen):
-                pygame.quit()
-                sys.exit()
+                if self.exit_button.draw(self.screen):
+                    self.game_state = 'init'
+                    self.load_level(self.level)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -157,6 +168,7 @@ class Game:
 
         while True:
             self.display.fill((0, 0, 0, 0))
+            # background is placed on display 2
             self.display_2.blit(self.assets['background'], (0, 0))
 
             self.screen_shake = max(0, self.screen_shake - 1)
@@ -174,9 +186,11 @@ class Game:
                     self.load_level(self.level)
 
             # self.scroll[0] += 1  # moves entities and tilemap to the left by n pixels every frame
-            self.scroll[0] += (self.player.rect().centerx - self.display.get_width() / 2 - self.scroll[0]) / 30
-            self.scroll[1] += (self.player.rect().centery - self.display.get_width() / 2 - self.scroll[1]) / 30
+            # last integer effects tracking: 1 = dead on, 30 = loose
+            self.scroll[0] += (self.player.rect().centerx - self.display.get_width() / 2 - self.scroll[0]) / 5
+            self.scroll[1] += (self.player.rect().centery - self.display.get_height() / 2 - self.scroll[1]) / 5
             render_scroll = (int(self.scroll[0]), int(self.scroll[1]))
+            # all onscreen items are offset by the render scroll
 
             # # populates particles list
             # for rect in self.leaf_spawners:
@@ -189,10 +203,12 @@ class Game:
             #             Particle(self, 'leaf', pos, velocity=[-0.1, 0.3], frame=random.randint(0, 20)))
 
             # CLOUD HANDLING
+            # clouds are printed on display 2
             self.clouds.update()
             self.clouds.render(self.display_2, render_scroll)
 
             # TILEMAP HANDLING
+            # tiles are printed on display
             self.tilemap.render(self.display, offset=render_scroll)
 
             # Enemy handling
@@ -200,10 +216,11 @@ class Game:
             # PLAYER HANDLING
             if not self.dead:  # if self.dead is zero
                 self.player.update(self.tilemap, (self.movement[1] - self.movement[0], 0))
+                # player is printed on display
                 self.player.render(self.display, offset=render_scroll)
 
             # projectile consists of: [[x, y], direction, timer]
-
+            # adds semi transparent sillouhette to all interactable objects
             display_mask = pygame.mask.from_surface(self.display)
             display_sillhouette = display_mask.to_surface(setcolor=(0, 0, 0, 180), unsetcolor=(0, 0, 0, 0))
             for offset in [(-1, 0), (0, -1), (1, 0), (0, 1)]:
@@ -238,9 +255,6 @@ class Game:
                     if event.key == pygame.K_ESCAPE:
                         self.game_state = 'paused'
                         self.menu()
-                    # cheat used for bug testing
-                    if event.key == pygame.K_p:
-                        self.enemies.clear()
                 # if key is not currently being pressed down
                 if event.type == pygame.KEYUP:
                     if event.key == pygame.K_LEFT:
@@ -248,10 +262,8 @@ class Game:
                     if event.key == pygame.K_RIGHT:
                         self.movement[1] = False
                 if event.type == pygame.MOUSEWHEEL:
-                    if event.y == 1:
-                        self.zoom_level += 1
-                    elif event.y == -1:
-                        self.zoom_level -= 1
+                    self.zoom_level = max(1, self.zoom_level + (0.05 * event.y))
+
             # won't run while transition is at zero
             if self.transition:
                 transition_surf = pygame.Surface(self.display.get_size())
@@ -261,11 +273,12 @@ class Game:
                 transition_surf.set_colorkey((255, 255, 255))
                 self.display.blit(transition_surf, (0, 0))
 
+            # self.display is blitted onto self.display_2
             self.display_2.blit(self.display, (0, 0))
-
-            screen_shake_offset = (random.random() * self.screen_shake - self.screen_shake / 2,
-                                   random.random() * self.screen_shake - self.screen_shake / 2)
-            self.screen.blit(pygame.transform.scale(self.display_2, self.screen.get_size()), screen_shake_offset)
+            scaled_surf = pygame.transform.scale(self.display_2, self.internal_surface_size_vector * self.zoom_level)
+            scaled_rect = scaled_surf.get_rect(center=(self.half_w, self.half_h))
+            self.screen.blit(scaled_surf, scaled_rect)
+            # self.screen.blit(pygame.transform.scale(self.display_2, ((self.screen.get_width() * (self.zoom_level)), self.screen.get_height() * (self.zoom_level))), (0, 0))
             pygame.display.update()
             self.clock.tick(60)
 
