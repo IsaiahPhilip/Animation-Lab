@@ -62,10 +62,10 @@ class Game:
             'dash': pygame.mixer.Sound('data/sfx/dash.wav'),
             'hit': pygame.mixer.Sound('data/sfx/hit.wav'),
             'shoot': pygame.mixer.Sound('data/sfx/shoot.wav'),
-            'ambience': pygame.mixer.Sound('data/sfx/ambience.wav'),
+            # 'ambience': pygame.mixer.Sound('data/sfx/ambience.wav'),
         }
 
-        self.sfx['ambience'].set_volume(0.2)
+        # self.sfx['ambience'].set_volume(0.2)
         self.sfx['shoot'].set_volume(0.4)
         self.sfx['hit'].set_volume(0.8)
         self.sfx['dash'].set_volume(0.3)
@@ -92,6 +92,7 @@ class Game:
         self.exit_button = Button(self, 200, 250, self.assets['exit'], .5)
 
         self.game_state = 'init'
+        self.zoom_level = 0
 
     # Initiates the game with a given level
     def load_level(self, map_id):
@@ -118,40 +119,45 @@ class Game:
         # -30 should make a completely black screen while zero is just how the game normally looks
         self.transition = -30
 
+    def menu(self):
+        while self.game_state == 'init' or self.game_state == 'paused':
+            self.display.fill((0, 0, 0, 0))
+            self.screen.blit(pygame.transform.scale(self.assets['background'], self.screen.get_size()), (0, 0))
+
+            if self.game_state == 'init':  # game hasnt begun or new game is beginning
+                if self.start_button.draw(self.screen):
+                    self.game_state = 'play'
+                    self.run()
+            else:
+                pygame.mixer.music.pause()
+
+                if self.continue_button.draw(self.screen):
+                    self.game_state = 'play'
+                    self.run()
+
+            if self.exit_button.draw(self.screen):
+                pygame.quit()
+                sys.exit()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            pygame.display.update()
+            self.clock.tick(60)
+
     def run(self):
         # wav files are easier to deal with
         pygame.mixer.music.load('data/music.wav')
         pygame.mixer.music.set_volume(0.5)
         # .play function takes the number of loops, 0 means no loop and -1 means infinite loop
         pygame.mixer.music.play(-1)
-        self.sfx['ambience'].play(-1)
+        # self.sfx['ambience'].play(-1)
 
         while True:
             self.display.fill((0, 0, 0, 0))
             self.display_2.blit(self.assets['background'], (0, 0))
-
-            while self.game_state == 'init' or self.game_state == 'paused':
-                self.display.fill((0, 0, 0, 0))
-                self.screen.blit(pygame.transform.scale(self.assets['background'], self.screen.get_size()), (0, 0))
-
-                if self.game_state == 'init':  # game hasnt begun or new game is beginning
-                    if self.start_button.draw(self.screen):
-                        self.game_state = 'play'
-                else:
-                    if self.continue_button.draw(self.screen):
-                        self.game_state = 'play'
-
-                if self.exit_button.draw(self.screen):
-                    pygame.quit()
-                    sys.exit()
-
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-
-                pygame.display.update()
-                self.clock.tick(60)
 
             self.screen_shake = max(0, self.screen_shake - 1)
 
@@ -172,15 +178,15 @@ class Game:
             self.scroll[1] += (self.player.rect().centery - self.display.get_width() / 2 - self.scroll[1]) / 30
             render_scroll = (int(self.scroll[0]), int(self.scroll[1]))
 
-            # populates particles list
-            for rect in self.leaf_spawners:
-                # allows leafs to spawn at random
-                if random.random() * 49999 < rect.width * rect.height:
-                    # sets spawn position to random point between the bounds of the rect
-                    pos = (rect.x + random.random() * rect.width, rect.y + random.random() * rect.height)
-                    # spawns particles
-                    self.particles.append(
-                        Particle(self, 'leaf', pos, velocity=[-0.1, 0.3], frame=random.randint(0, 20)))
+            # # populates particles list
+            # for rect in self.leaf_spawners:
+            #     # allows leafs to spawn at random
+            #     if random.random() * 49999 < rect.width * rect.height:
+            #         # sets spawn position to random point between the bounds of the rect
+            #         pos = (rect.x + random.random() * rect.width, rect.y + random.random() * rect.height)
+            #         # spawns particles
+            #         self.particles.append(
+            #             Particle(self, 'leaf', pos, velocity=[-0.1, 0.3], frame=random.randint(0, 20)))
 
             # CLOUD HANDLING
             self.clouds.update()
@@ -231,6 +237,7 @@ class Game:
                         self.player.dash()
                     if event.key == pygame.K_ESCAPE:
                         self.game_state = 'paused'
+                        self.menu()
                     # cheat used for bug testing
                     if event.key == pygame.K_p:
                         self.enemies.clear()
@@ -240,7 +247,11 @@ class Game:
                         self.movement[0] = False
                     if event.key == pygame.K_RIGHT:
                         self.movement[1] = False
-
+                if event.type == pygame.MOUSEWHEEL:
+                    if event.y == 1:
+                        self.zoom_level += 1
+                    elif event.y == -1:
+                        self.zoom_level -= 1
             # won't run while transition is at zero
             if self.transition:
                 transition_surf = pygame.Surface(self.display.get_size())
@@ -259,4 +270,4 @@ class Game:
             self.clock.tick(60)
 
 
-Game().run()
+Game().menu()
