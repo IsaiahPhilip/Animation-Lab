@@ -63,6 +63,8 @@ class Game:
             'exit': load_image('buttons/exit_btn.png'),
             'start': load_image('buttons/start_btn.png'),
             'continue': load_image('buttons/continue_btn.png'),
+            'settings': load_image('buttons/settings_btn.png'),
+            'title': load_image('title.png'),
         }
 
         self.sfx = {
@@ -95,9 +97,12 @@ class Game:
 
         self.screen_shake = 16
 
-        self.start_button = Button(self, 180, 100, self.assets['start'], .5)
-        self.continue_button = Button(self, 180, 100, self.assets['continue'], .5)
-        self.exit_button = Button(self, 200, 250, self.assets['exit'], .5)
+        self.buttons_x = 400
+
+        self.start_button = Button(self, self.buttons_x, 100, self.assets['start'], 1)
+        self.continue_button = Button(self, self.buttons_x, 100, self.assets['continue'], 1)
+        self.exit_button = Button(self, self.buttons_x, 300, self.assets['exit'], 1)
+        self.settings_button = Button(self, self.buttons_x, 200, self.assets['settings'], 1)
 
         self.game_state = 'init'
         self.zoom_level = 1
@@ -127,12 +132,23 @@ class Game:
         # -30 should make a completely black screen while zero is just how the game normally looks
         self.transition = -30
 
+    def settings(self):
+        pass
+
+
     def menu(self):
         while self.game_state == 'init' or self.game_state == 'paused':
             self.display.fill((0, 0, 0, 0))
-            self.screen.blit(pygame.transform.scale(self.assets['background'], self.screen.get_size()), (0, 0))
+
+            mouse = pygame.mouse.get_pos()
 
             if self.game_state == 'init':  # game hasnt begun or new game is beginning
+                pygame.mixer.music.pause()
+                self.screen.fill((0, 0, 0, 0)) # should replace with a background
+
+                self.screen.blit(pygame.transform.scale(self.assets['title'], (
+                self.assets['title'].get_width() * 1.5, self.assets['title'].get_height() * 1.5)), (20, 150))
+
                 if self.start_button.draw(self.screen):
                     self.game_state = 'play'
                     self.run()
@@ -140,8 +156,11 @@ class Game:
                 if self.exit_button.draw(self.screen):
                     pygame.quit()
                     sys.exit()
+
+                if self.settings_button.draw(self.screen):
+                    self.settings()
+
             else:
-                pygame.mixer.music.pause()
                 if self.continue_button.draw(self.screen):
                     self.game_state = 'play'
                     self.run()
