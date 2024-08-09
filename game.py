@@ -64,7 +64,10 @@ class Game:
             'start': load_image('buttons/start_btn.png'),
             'continue': load_image('buttons/continue_btn.png'),
             'settings': load_image('buttons/settings_btn.png'),
+            'controls': load_image('buttons/controls_btn.png'),
+            'main_menu_btn': load_image('buttons/main_menu_btn.png'),
             'title': load_image('title.png'),
+            'controls_bg': load_image('controls_background.png'),
         }
 
         self.sfx = {
@@ -99,13 +102,24 @@ class Game:
 
         self.buttons_x = 400
 
-        self.start_button = Button(self, self.buttons_x, 100, self.assets['start'], 1)
+        self.start_button = Button(self, self.buttons_x, 50, self.assets['start'], 1)
         self.continue_button = Button(self, self.buttons_x, 100, self.assets['continue'], 1)
-        self.exit_button = Button(self, self.buttons_x, 300, self.assets['exit'], 1)
-        self.settings_button = Button(self, self.buttons_x, 200, self.assets['settings'], 1)
+        self.exit_button = Button(self, self.buttons_x, 350, self.assets['exit'], 1)
+        self.settings_button = Button(self, self.buttons_x, 250, self.assets['settings'], 1)
+        self.controls_button = Button(self, self.buttons_x, 150, self.assets['controls'], 1)
+        self.main_menu_button = Button(self, 200, 10, self.assets['main_menu_btn'], 1)
 
+        '''
+            game state meanings:
+            init -> 
+            pause ->
+            play ->        
+        '''
         self.game_state = 'init'
+
         self.zoom_level = 1
+
+        pygame.font.init()  # you have to call this at the start,
 
     # Initiates the game with a given level
     def load_level(self, map_id):
@@ -135,8 +149,27 @@ class Game:
     def settings(self):
         pass
 
+    def controls(self):
+        while self.game_state == 'controls':
+            self.display_2.fill((0, 0, 0, 0))
+            self.display_2.blit(self.assets['controls_bg'], (0, 0))
+            self.screen.blit(pygame.transform.scale(self.display_2, self.screen.get_size()), (0, 0))
+
+            if self.main_menu_button.draw(self.screen):
+                self.game_state = 'init'
+                self.menu()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            pygame.display.update()
+            self.clock.tick(60)
 
     def menu(self):
+        my_font = pygame.font.SysFont('Comic Sans MS', 15)
+        text_surface = my_font.render('Check Controls b4 testing', False, (255, 255, 255))
         while self.game_state == 'init' or self.game_state == 'paused':
             self.display.fill((0, 0, 0, 0))
 
@@ -147,7 +180,9 @@ class Game:
                 self.screen.fill((0, 0, 0, 0)) # should replace with a background
 
                 self.screen.blit(pygame.transform.scale(self.assets['title'], (
-                self.assets['title'].get_width() * 1.5, self.assets['title'].get_height() * 1.5)), (20, 150))
+                self.assets['title'].get_width() * 1.5, self.assets['title'].get_height() * 1.5)), (5, 20))
+
+                self.screen.blit(text_surface, (105, 60))
 
                 if self.start_button.draw(self.screen):
                     self.game_state = 'play'
@@ -157,6 +192,10 @@ class Game:
                     pygame.quit()
                     sys.exit()
 
+                if self.controls_button.draw(self.screen):
+                    self.game_state = 'controls'
+                    self.controls()
+
                 if self.settings_button.draw(self.screen):
                     self.settings()
 
@@ -165,9 +204,10 @@ class Game:
                     self.game_state = 'play'
                     self.run()
 
-                if self.exit_button.draw(self.screen):
+                if self.main_menu_button.draw(self.screen):
                     self.game_state = 'init'
-                    self.load_level(self.level)
+                    self.load_level('map.json')
+                    self.menu()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
